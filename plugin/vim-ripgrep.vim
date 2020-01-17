@@ -24,6 +24,10 @@ if !exists('g:rg_window_location')
   let g:rg_window_location = 'botright'
 endif
 
+if !exists('g:rg_only_show_files')
+  let g:rg_only_show_files = 0
+endif
+
 fun! g:RgVisual() range
   call s:RgGrepContext(function('s:RgSearch'), '"' . s:RgGetVisualSelection() . '"')
 endfun
@@ -61,10 +65,26 @@ fun! s:RgSearch(txt)
   if &smartcase == 1
     let l:rgopts = l:rgopts . '-S '
   endif
+  if g:rg_only_show_files == 1
+    let l:rgopts = l:rgopts . '-l '
+  endif
   silent! exe 'grep! ' . l:rgopts . a:txt
   if len(getqflist())
-    exe g:rg_window_location 'copen'
-    redraw!
+    " Open rg results in new tab
+    exe 'tabnew'
+    " Open the quickfix list and resize it to 5 lines
+    exe g:rg_window_location 'copen 5'
+    " redraw! " NOTE: shouldn't need to redraw anymore since results are being displayed in a new tab
+    " Remove the last 3 characters from every line (the leftover '|| ' characters) in the quick fix window
+    setlocal modifiable
+    silent exe ':%s/.\{3}$//'
+    setlocal nomodified
+    setlocal nomodifiable
+    " Remove highlighting for the search pattern
+    call matchadd("QuickFixRemoveSearchHighlight", a:txt)
+    " Press enter on the first entry
+    exe 'normal' 'gg'
+    " Highlight the search pattern
     if exists('g:rg_highlight')
       call s:RgHighlight(a:txt)
     endif
@@ -111,7 +131,8 @@ endfun
 
 fun! s:RgHighlight(txt)
   let @/=escape(substitute(a:txt, '"', '', 'g'), '|')
-  call feedkeys(":let &hlsearch=1\<CR>", 'n')
+"  call feedkeys(":let &hlsearch=1\<CR>", 'n') " Commented out to clear the 'let &hlsearch=1' message at bottom of screen
+"  call feedkeys(":echo ''\<CR>", 'n') " To clear the 'let &hlsearch=1' message at bottom of screen
 endfun
 
 fun! s:RgRootDir()
